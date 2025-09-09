@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
 
 use App\Models\Food;
 use App\Models\Order;
@@ -27,10 +28,24 @@ class FoodController extends Controller
             'image' => 'nullable|image|max:2048',
         ]);
 
-        // Prefer uploaded image over URL if provided
-        if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('foods', 'public');
-            $validated['image_url'] = Storage::url($path);
+        // Prefer uploaded image over URL if provided and valid
+        if ($request->hasFile('image') && $request->file('image')->isValid()) {
+            $uploadDirectory = public_path('uploads/foods');
+            if (! File::exists($uploadDirectory)) {
+                File::makeDirectory($uploadDirectory, 0755, true);
+            }
+
+            $uploadedFile = $request->file('image');
+            $extension = $uploadedFile->getClientOriginalExtension() ?: 'jpg';
+            $filename = uniqid('food_', true).'.'.$extension;
+            $uploadedFile->move($uploadDirectory, $filename);
+
+            $validated['image_url'] = '/uploads/foods/'.$filename;
+        } else {
+            // Normalize empty string to null to avoid saving empty paths
+            if (isset($validated['image_url']) && $validated['image_url'] === '') {
+                $validated['image_url'] = null;
+            }
         }
 
         Food::create($validated);
@@ -53,9 +68,22 @@ class FoodController extends Controller
             'image' => 'nullable|image|max:2048',
         ]);
 
-        if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('foods', 'public');
-            $validated['image_url'] = Storage::url($path);
+        if ($request->hasFile('image') && $request->file('image')->isValid()) {
+            $uploadDirectory = public_path('uploads/foods');
+            if (! File::exists($uploadDirectory)) {
+                File::makeDirectory($uploadDirectory, 0755, true);
+            }
+
+            $uploadedFile = $request->file('image');
+            $extension = $uploadedFile->getClientOriginalExtension() ?: 'jpg';
+            $filename = uniqid('food_', true).'.'.$extension;
+            $uploadedFile->move($uploadDirectory, $filename);
+
+            $validated['image_url'] = '/uploads/foods/'.$filename;
+        } else {
+            if (isset($validated['image_url']) && $validated['image_url'] === '') {
+                $validated['image_url'] = null;
+            }
         }
 
         $food->update($validated);
